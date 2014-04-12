@@ -1,0 +1,21 @@
+{
+	"name": "phpf/httputil",
+	"type": "library",
+	"description": "Phpf HTTP Utilities",
+	"keywords": ["HTTP", "Utility", "Server"],
+	"homepage": "https://github.com/phpf/HttpUtil",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "The PHPf Developer",
+			"email": "wellspeterson@live.com"
+		}
+	],
+	"require": {
+		"php": ">=5.3"
+	},
+	"autoload": {
+    "files": ["HttpUtil.php"]
+	},
+	"minimum-stability": "dev"
+}
