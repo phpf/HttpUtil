@@ -109,7 +109,7 @@ define('HTTP_NOT_ACCEPTABLE', 406);
  * http_response_code() for PHP < 5.4 
  */
 if (! function_exists('http_response_code')) {
-	require __DIR__ . '/src/HttpUtil/fn/http_response_code.php';
+	require __DIR__ . '/src/fn/http_response_code.php';
 }
 
 /**
@@ -156,7 +156,7 @@ if (! extension_loaded('http')) :
 	/**
 	 * Functions, generally close to their extension counterparts.
 	 */
-	require __DIR__ . '/src/HttpUtil/fn/http.php';
+	require __DIR__ . '/src/fn/http.php';
 
 endif;
 
