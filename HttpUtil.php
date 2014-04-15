@@ -4,12 +4,16 @@
  * 
  * @license MIT
  * @author wells
+ * @version 0.0.2
  */
+
+/* If not using Composer, you can use the autoloader below
 spl_autoload_register(function ($class) {
 	if (0 === strpos($class, 'HttpUtil')) {
 		include __DIR__. '/src/' . str_replace(array('HttpUtil\\', '\\'), array('', '/'), $class) .'.php';
 	}
 });
+*/
 
 if (! defined('HTTP_DOMAIN')) :
 	/**

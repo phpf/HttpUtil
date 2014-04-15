@@ -1,7 +1,7 @@
 {
 	"name": "phpf/httputil",
 	"type": "library",
-	"description": "Phpf HTTP Utilities",
+	"description": "Dependency-free HTTP Utilities",
 	"keywords": ["HTTP", "Utility", "Server"],
 	"homepage": "https://github.com/phpf/HttpUtil",
 	"license": "MIT",
@@ -15,7 +15,10 @@
 		"php": ">=5.3"
 	},
 	"autoload": {
-    "files": ["HttpUtil.php"]
+		"files": ["HttpUtil.php"],
+		"psr-4": {
+			"HttpUtil\\": "src/"
+		}
 	},
 	"minimum-stability": "dev"
 }
