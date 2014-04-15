@@ -108,9 +108,9 @@ define('HTTP_NOT_ACCEPTABLE', 406);
 /** 
  * http_response_code() for PHP < 5.4 
  */
-if (! function_exists('http_response_code')) :
+if (! function_exists('http_response_code')) {
 	require __DIR__ . '/src/HttpUtil/fn/http_response_code.php';
-endif;
+}
 
 /**
  * Functions and constants that share names with the HTTP (v1) extension.
@@ -195,11 +195,13 @@ function mime2filetype($mimetype, $default = null) {
 }
 
 /**
- * Returns a URL, complete with scheme (https if SSL enabled).
+ * Returns a URL from a given string or array. 
  * 
- * If given a full URL (scheme, host, etc.), will add/replace query parameters.
- * If given a relative path, it will return a full URL using the current env settings.
- * If given an array, will use like an array returned from parse_url()
+ * If 1st param is a full URL (with scheme, host, and path) as string or array, 
+ * behavior is to merge the query parameters given by $params.
+ * 
+ * If given a relative file path or incomplete array, behavior is convert the
+ * path to a full URL, with scheme, using the HTTP_SSL and HTTP_DOMAIN constants.
  * 
  * @param string|array $path A URI path, possibily with scheme, host, path, and/or query.
  * @param array $params Associative array of query parameters to merge into URL.
@@ -276,9 +278,9 @@ function http_build_cache_headers($expires_offset = 86400) {
  * 
  * Stores the string in a static variable, thus providing a way to
  * get php://input more than once. Of course, this function will
- * not work if read before (e.g. fopen, file_get_contents, etc.).
+ * not work if read before (e.g. via fopen(), etc.).
  * 
- * NOTE: $_POST requests with "multipart/form-data" will not work with php://input
+ * Note: POST requests with "multipart/form-data" will not work with php://input
  * 
  * @return string HTTP request body.
  */

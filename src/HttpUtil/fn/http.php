@@ -1,8 +1,8 @@
 <?php
 
 /**
- * Returns a valid HTTP date.
- * If no timestamp is given, uses current time.
+ * Returns a valid HTTP date using given timestamp, or
+ * current time is none is given.
  * 
  * @param int $timestamp Unix timestamp
  * @return string Date formatted regarding RFC 1123.
@@ -33,7 +33,7 @@ function http_redirect($url, array $params = null, $session = false, $status = 0
 		if ((300 < $status && $status < 308) || 201 === $status) {
 			http_send_status($status);
 		}
-		// status sent automatically unless 201 or 3xx set
+		// status sent automatically (302) unless 201 or 3xx set
 	}
 	
 	header_remove('Last-Modified');
@@ -52,7 +52,8 @@ function http_redirect($url, array $params = null, $session = false, $status = 0
  */
 function http_send_status($code) {
 	http_response_code($code);
-	header("Status: $code ". http_response_code_desc($code));
+	// don't replace in case we're rfc2616
+	header("Status: $code ". http_response_code_desc($code), false);
 }
 
 /**
