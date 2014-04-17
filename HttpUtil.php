@@ -15,12 +15,12 @@ spl_autoload_register(function ($class) {
 });
 */
 
-if (! defined('HTTP_DOMAIN')) :
+if (! defined('HTTP_HOST')) :
 	/**
 	 * Domain/host
 	 * @var string
 	 */
-	define('HTTP_DOMAIN', rtrim($_SERVER['HTTP_HOST'], '/\\').rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'));
+	define('HTTP_HOST', rtrim($_SERVER['HTTP_HOST'], '/\\').rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\'));
 endif;
 
 /**
@@ -115,7 +115,7 @@ if (! function_exists('http_response_code')) {
 /**
  * Functions and constants that share names with the HTTP (v1) extension.
  */
-if (! extension_loaded('http')) :
+if (! function_exists('http_get_request_headers')) :
 	
 	/**
 	 * HTTP method GET
@@ -219,7 +219,7 @@ function http_url($path = '', array $params = null, $as_array = false) {
 	}
 	
 	if (! isset($path['host'])) {
-		$path['host'] = HTTP_DOMAIN;
+		$path['host'] = HTTP_HOST;
 	}
 	
 	$url = $path['scheme'] .'://'. $path['host'] .'/'. ltrim($path['path'], '/');
@@ -274,70 +274,6 @@ function http_build_cache_headers($expires_offset = 86400) {
 }
 
 /**
- * Returns request body string.
- * 
- * Stores the string in a static variable, thus providing a way to
- * get php://input more than once. Of course, this function will
- * not work if read before (e.g. via fopen(), etc.).
- * 
- * Note: POST requests with "multipart/form-data" will not work with php://input
- * 
- * @return string HTTP request body.
- */
-function http_request_body() {
-	static $rawbody;
-	if (! isset($rawbody)) {
-		$rawbody = file_get_contents('php://input');
-	}
-	return $rawbody;
-}
-
-/**
- * Returns array of HTTP request headers.
- * 
- * Cross-platform function to access current HTTP request headers.
- * 
- * @param array|null $server	Array or null to use $_SERVER
- * @return array 				HTTP request headers, keys stripped of "HTTP_" and lowercase.
- */
-function http_request_headers() {
-	static $headers;
-	if (isset($headers)) {
-		return $headers; // get once per request
-	}
-	if (function_exists('apache_request_headers')) {
-		$_headers = apache_request_headers();
-	} else {
-		$_headers = array();
-		$misfits = array('CONTENT_TYPE', 'CONTENT_LENGTH', 'CONTENT_MD5', 'AUTH_TYPE', 'PHP_AUTH_USER', 'PHP_AUTH_PW', 'PHP_AUTH_DIGEST');
-		foreach ( $_SERVER as $key => $value ) {
-			if (0 === strpos($key, 'HTTP_')) {
-				$_headers[ $normalize($key) ] = $value;
-			} else if (in_array($key, $misfits, true)) {
-				$_headers[ $normalize($key) ] = $value;
-			}
-		}
-	}
-	$headers = array();
-	foreach($_headers as $key => $value) {
-		$key = str_replace(array('http_', '_'), array('', '-'), strtolower($key));
-		$headers[$key] = $value;
-	}
-	return $headers;
-}
-
-/**
- * Fetches a single HTTP request header.
- * 
- * @param string $name		Header name, lowercase, without 'HTTP_' prefix.
- * @return string|null		Header value, if set, otherwise null.
- */
-function http_request_header($name) {
-	$headers = http_request_headers();
-	return isset($headers[$name]) ? $headers[$name] : null;
-}
-
-/**
  * Parses a request header to determine which value to use in response.
  *  
  * @param string $name	Request header name, lowercase.
@@ -346,7 +282,7 @@ function http_request_header($name) {
  * 						or first array value if no match found.
  */
 function http_negotiate_request_header($name, array $accept) {
-	if (null === $header = http_request_header($name)) {
+	if (null === $header = http_get_request_header($name)) {
 		return $accept[0];
 	}
 	$object = new \HttpUtil\Header\NegotiatedHeader($name, $header);
@@ -362,7 +298,7 @@ function http_negotiate_request_header($name, array $accept) {
  * @return boolean			True if match, otherwise false.
  */
 function http_in_request_header($name, $value, $match_case = false) {
-	if (null === $header = http_request_header($name)) {
+	if (null === $header = http_get_request_header($name)) {
 		return false;
 	}
 	return  $match_case

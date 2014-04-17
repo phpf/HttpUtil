@@ -1,4 +1,7 @@
 <?php
+/**
+ * (Some) functions provided by PECL HTTP extension (v1).
+ */
 
 /**
  * Returns a valid HTTP date using given timestamp, or
@@ -17,16 +20,14 @@ function http_date($timestamp = null) {
  * @param string $url	URL to redirect to. Used in "Location:" header.
  * @return void
  */
-function http_redirect($url, array $params = null, $session = false, $status = 0) {
+function http_redirect($url, array $params = null, $status = 0) {
 		
 	if (headers_sent($filename, $line)) {
 		throw new RuntimeException("Cannot redirect to '$url' - Output already started in $filename on line $line</p>");
 	}
 	
 	if (isset($params)) {
-		$url .= '?'.http_build_query($params, null, '&') . ($session ? '&'.SID : '');
-	} else if ($session) {
-		$url .= '?'.SID;
+		$url .= '?'.http_build_query($params, null, '&');
 	}
 	
 	if (0 !== $status) {
@@ -83,6 +84,23 @@ function http_send_content_type($content_type = 'application/x-octetstream', $ch
 }
 
 /**
+ * Send the "Content-Disposition" header.
+ */
+function http_send_content_disposition($disposition = 'attachment', $filename = null, $name = null) {
+	
+	$string = 'Content-Disposition: '.$disposition;
+	
+	if (isset($filename)) {
+		$string .= '; filename="'. $filename .'"';
+	}
+	if (isset($name)) {
+		$string .= '; name="'. $name .'"';
+	}
+	
+	header($string, false);
+}
+
+/**
  * Sends a file download, invoking the browser's "Save As..." dialog.
  * 
  * Exits after sending. Unlike the HTTP extension version, this function
@@ -113,7 +131,8 @@ function http_send_file($file, $filetype = 'download', $filename = null) {
 	
 	http_send_content_type(mimetype($filetype, 'application/octet-stream'));
 	
-	header('Content-Disposition: attachment; filename="'.$filename.'"');
+	http_send_content_disposition('attachment', $filename);
+	
 	// request is invalid without Content-Length
 	header('Content-Length: '.filesize($file));
 	header('Content-Transfer-Encoding: binary');
@@ -125,6 +144,70 @@ function http_send_file($file, $filetype = 'download', $filename = null) {
 }
 
 /**
+ * Returns request body string.
+ * 
+ * Stores the string in a static variable, thus providing a way to
+ * get php://input more than once. Of course, this function will
+ * not work if read before (e.g. via fopen(), etc.).
+ * 
+ * Note: POST requests with "multipart/form-data" will not work with php://input
+ * 
+ * @return string HTTP request body.
+ */
+function http_get_request_body() {
+	static $rawbody;
+	if (! isset($rawbody)) {
+		$rawbody = file_get_contents('php://input');
+	}
+	return $rawbody;
+}
+
+/**
+ * Returns array of HTTP request headers.
+ * 
+ * Cross-platform function to access current HTTP request headers.
+ * 
+ * @param array|null $server	Array or null to use $_SERVER
+ * @return array 				HTTP request headers, keys stripped of "HTTP_" and lowercase.
+ */
+function http_get_request_headers() {
+	static $headers;
+	if (isset($headers)) {
+		return $headers; // get once per request
+	}
+	if (function_exists('apache_request_headers')) {
+		$_headers = apache_request_headers();
+	} else {
+		$_headers = array();
+		$misfits = array('CONTENT_TYPE', 'CONTENT_LENGTH', 'CONTENT_MD5', 'AUTH_TYPE', 'PHP_AUTH_USER', 'PHP_AUTH_PW', 'PHP_AUTH_DIGEST');
+		foreach ( $_SERVER as $key => $value ) {
+			if (0 === strpos($key, 'HTTP_')) {
+				$_headers[ $normalize($key) ] = $value;
+			} else if (in_array($key, $misfits, true)) {
+				$_headers[ $normalize($key) ] = $value;
+			}
+		}
+	}
+	$headers = array();
+	foreach($_headers as $key => $value) {
+		$key = str_replace(array('http_', '_'), array('', '-'), strtolower($key));
+		$headers[$key] = $value;
+	}
+	return $headers;
+}
+
+/**
+ * Fetches a single HTTP request header.
+ * 
+ * @param string $name		Header name, lowercase, without 'HTTP_' prefix.
+ * @return string|null		Header value, if set, otherwise null.
+ */
+function http_get_request_header($name) {
+	$headers = http_get_request_headers();
+	return isset($headers[$name]) ? $headers[$name] : null;
+}
+
+/**
  * Matches the contents of a given HTTP request header.
  * 
  * @param string $name		Header name, lowercase, without 'HTTP_'.
@@ -133,7 +216,7 @@ function http_send_file($file, $filetype = 'download', $filename = null) {
  * @return boolean			True if match, otherwise false.
  */
 function http_match_request_header($name, $value, $match_case = false) {
-	if (null === $header = http_request_header($name)) {
+	if (null === $header = http_get_request_header($name)) {
 		return false;
 	}
 	return $match_case
@@ -153,7 +236,7 @@ function http_match_request_header($name, $value, $match_case = false) {
  * @return string		Matched content-type, or first array item if no match.
  */
 function http_negotiate_content_type(array $accept) {
-	if (null === $header = http_request_header('accept')) {
+	if (null === $header = http_get_request_header('accept')) {
 		return $accept[0];
 	}
 	$object = new \HttpUtil\Header\NegotiatedHeader('accept', $header);
