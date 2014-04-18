@@ -34,10 +34,14 @@ class NegotiatedHeader extends MultiValueHeader {
 	 * @param array $accepted Indexed array of accepted values.
 	 * @return string The matched value, or default (first array item).
 	 */
-	public function negotiate(array $accepted) {
+	public function negotiate(array $accepted, array &$results = null) {
 		
 		if (empty($this->values)) {
 			$this->parse();
+		}
+		
+		if (! isset($results)) {
+			$results = array();
 		}
 		
 		// default type is first array item
@@ -46,13 +50,21 @@ class NegotiatedHeader extends MultiValueHeader {
 		// use isset()
 		$accepted = array_fill_keys($accepted, true);
 		
-		foreach($this->values as $obj) {
-			if (isset($accepted[$obj->value])) {
-				return $this->negotiated = $obj->value;
+		foreach($this->values as $pos => $valObj) {
+			if (isset($accepted[$valObj->value])) {
+				return $results['best'] = $this->negotiated = $valObj->value;
 			}
 		}
 		
-		return $this->negotiated = $default;
+		if ($found = $this->nomatch($results, $accepted)) {
+			return $results['best'] = $this->negotiated = $found;
+		}
+
+		return $results[''] = $this->negotiated = $default;
+	}
+	
+	protected function nomatch(array &$results, array $accepted) {
+		return null;
 	}
 	
 	/**

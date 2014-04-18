@@ -20,14 +20,10 @@ function http_date($timestamp = null) {
  * @param string $url	URL to redirect to. Used in "Location:" header.
  * @return void
  */
-function http_redirect($url, array $params = null, $status = 0) {
+function http_redirect($url, $status = 0, $exit = true) {
 		
 	if (headers_sent($filename, $line)) {
 		throw new RuntimeException("Cannot redirect to '$url' - Output already started in $filename on line $line</p>");
-	}
-	
-	if (isset($params)) {
-		$url .= '?'.http_build_query($params, null, '&');
 	}
 	
 	if (0 !== $status) {
@@ -37,12 +33,16 @@ function http_redirect($url, array $params = null, $status = 0) {
 		// status sent automatically (302) unless 201 or 3xx set
 	}
 	
-	header_remove('Last-Modified');
 	header('Expires: Mon, 12 Dec 1982 06:00:00 GMT');
 	header('Cache-Control: no-cache, must-revalidate, max-age=0');
 	header('Pragma: no-cache');
-	header("Location: $url");
-	exit;
+	header_remove('Last-Modified');
+	// no space is a fix for msie
+	header("Location:$url");
+	
+	if ($exit) {
+		exit;
+	}
 }
 
 /**
@@ -133,7 +133,7 @@ function http_send_file($file, $filetype = 'download', $filename = null) {
 	
 	http_send_content_disposition('attachment', $filename);
 	
-	// request is invalid without Content-Length
+	// invalid without Content-Length
 	header('Content-Length: '.filesize($file));
 	header('Content-Transfer-Encoding: binary');
 	header('Connection: close');
@@ -162,6 +162,46 @@ function http_get_request_body() {
 	return $rawbody;
 }
 
+class HttpRequestBodyStream {
+	
+	protected static $handle;
+	
+	protected static $instance;
+	
+	public static function instance() {
+		if (! isset(self::$instance)) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+	
+	protected function __construct() {
+		self::$handle = fopen('php://input', 'rb');
+		register_shutdown_function(array($this, 'close'));
+	}
+	
+	public function __get($var) {
+		if ('handle' === $var) {
+			return $this->handle();
+		}
+		return null;
+	}
+	
+	public function handle() {
+		return self::$handle;
+	}
+	
+	public function close() {
+		if (is_resource(self::$handle)) {
+			fclose(self::$handle);
+		}
+	}
+}
+
+function http_get_request_body_stream() {
+	return HttpRequestBodyStream::instance()->handle();
+}
+
 /**
  * Returns array of HTTP request headers.
  * 
@@ -182,9 +222,9 @@ function http_get_request_headers() {
 		$misfits = array('CONTENT_TYPE', 'CONTENT_LENGTH', 'CONTENT_MD5', 'AUTH_TYPE', 'PHP_AUTH_USER', 'PHP_AUTH_PW', 'PHP_AUTH_DIGEST');
 		foreach ( $_SERVER as $key => $value ) {
 			if (0 === strpos($key, 'HTTP_')) {
-				$_headers[ $normalize($key) ] = $value;
+				$_headers[$key] = $value;
 			} else if (in_array($key, $misfits, true)) {
-				$_headers[ $normalize($key) ] = $value;
+				$_headers[$key] = $value;
 			}
 		}
 	}
@@ -241,4 +281,19 @@ function http_negotiate_content_type(array $accept) {
 	}
 	$object = new \HttpUtil\Header\NegotiatedHeader('accept', $header);
 	return $object->negotiate($accept);
+}
+
+/**
+ * Determines best language from the 'Accept-Language' request header
+ * given an array of accepted languages.
+ * 
+ * Tries to find a direct match (e.g. 'en-US' to 'en-US') but if none is
+ * found, finds the best match determined by prefix (e.g. "en").
+ */
+function http_negotiate_language(array $accept, &$result = null) {
+	if (null === $header = http_get_request_header('accept-language')) {
+		return $accept[0];
+	}
+	$object = new \HttpUtil\Header\AcceptLanguage('accept-language', $header);
+	return $object->negotiate($accept, $result);
 }
