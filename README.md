@@ -16,28 +16,31 @@ Utilities for working with HTTP requests and responses.
 
 ###Function list
 
-Functions marked with _*_ are based on and largely consistent with their pecl_http v1 counterparts.
+The following functions are based on, and largely consistent with, their `pecl_http` extension (v1) counterparts:
+ 
+ * __`http_build_url()`__
+ * __`http_date()`__
+ * __`http_redirect()`__
+ * __`http_send_status()`__
+ * __`http_send_content_type()`__
+ * __`http_send_content_disposition()`__
+ * __`http_send_file()`__
+ * __`http_get_request_body()`__
+ * __`http_get_request_body_stream()`__
+ * __`http_get_request_headers()`__
+ * __`http_match_request_header()`__
+ * __`http_negotiate_content_type()`__
+ * __`http_negotiate_language()`__
 
- * `http_env()`
- * `http_response_code()`
- * `http_response_code_desc()`
- * `http_build_cache_headers()`
- * `http_build_url()` _*_
- * `http_date()` _*_
- * `http_redirect()` _*_
- * `http_send_status()` _*_
- * `http_send_content_type()` _*_
- * `http_send_content_disposition()` _*_
- * `http_send_file()` _*_
- * `http_get_request_body()` _*_
- * `http_get_request_body_stream()` _*_
- * `http_get_request_headers()` _*_
- * `http_get_request_header()`
- * `http_in_request_header()`
- * `http_match_request_header()` _*_
- * `http_negotiate_content_type()` _*_
- * `http_negotiate_language()` _*_
- * `http_negotiate_request_header()`
- * `mimetype()`
- * `mime2filetype()`
+The following functions are also available:
+
+ * __`http_get_request_header()`__
+ * __`http_negotiate_request_header()`__
+ * __`http_in_request_header()`__
+ * __`http_build_cache_headers()`__
+ * __`http_response_code()`__
+ * __`http_response_code_desc()`__
+ * __`http_env()`__
+ * __`mimetype()`__
+ * __`mime2filetype()`__
 
