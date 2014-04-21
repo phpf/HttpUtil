@@ -153,11 +153,11 @@ function http_send_file($file, $filetype = 'download', $filename = null) {
 /**
  * Returns request body string.
  *
- * Stores the string in a static variable, thus providing a way to
- * get php://input more than once. Of course, this function will
- * not work if read before (e.g. via fopen(), etc.).
- *
- * Note: POST requests with "multipart/form-data" will not work with php://input
+ * This function will not work if php://input is read before calling
+ * (e.g. via file_get_contents(), fopen(), etc.).
+ * 
+ * Also, POST requests with "multipart/form-data" will not work with this
+ * function, as it relies on php://input.
  *
  * @see \HttpUtil\Request\Body::getContents()
  * 

@@ -15,9 +15,9 @@ class AcceptLanguage extends NegotiatedHeader {
 		$found = array();
 		
 		foreach($this->values as $value) {
-			list($prefix,) = explode('-', $value->value);
+			$prefix = substr($value->value, 0, 2);
 			if (isset($accept[$prefix])) {
-				$i = ($value->quality*90);
+				$i = (int)($value->quality*90);
 				$found[$i] = $prefix;
 				$results[$i] = $accept[$prefix];
 			}

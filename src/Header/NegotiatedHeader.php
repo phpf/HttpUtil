@@ -45,7 +45,7 @@ class NegotiatedHeader extends MultiValueHeader {
 		}
 		
 		// default type is first array item
-		$default = $accepted[0];
+		$results['default'] = $accepted[0];
 		
 		// use isset()
 		$accepted = array_fill_keys($accepted, true);
@@ -60,7 +60,7 @@ class NegotiatedHeader extends MultiValueHeader {
 			return $results['best'] = $this->negotiated = $found;
 		}
 
-		return $results[''] = $this->negotiated = $default;
+		return $this->negotiated = $results['default'];
 	}
 	
 	protected function nomatch(array &$results, array $accepted) {
