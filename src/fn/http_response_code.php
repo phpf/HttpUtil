@@ -1,4 +1,7 @@
 <?php
+/**
+ * @package HttpUtil
+ */
 
 /**
  * Returns/sends HTTP response status code.

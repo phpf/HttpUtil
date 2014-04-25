@@ -1,7 +1,58 @@
 <?php
 /**
- * (Some) functions provided by PECL HTTP extension (v1).
+ * @package HttpUtil
+ * 
+ * (Some) functions provided by PECL HTTP extension (v1):
+ * * http_date()
+ * * http_redirect()
+ * * http_send_status()
+ * * http_send_content_type()
+ * * http_send_content_disposition()
+ * * http_send_file()
+ * * http_get_request_body()
+ * * http_get_request_body_stream()
+ * * http_get_request_headers()
+ * * http_get_request_header()
+ * * http_match_request_header()
+ * * http_negotiate_content_type()
+ * * http_negotiate_language()
  */
+
+/**
+ * HTTP method GET
+ * @var string
+ */
+define("HTTP_METH_GET", 'GET');
+
+/**
+ * HTTP method POST
+ * @var string
+ */
+define("HTTP_METH_POST", 'POST');
+
+/**
+ * HTTP method HEAD
+ * @var string
+ */
+define("HTTP_METH_HEAD", 'HEAD');
+
+/**
+ * HTTP method PUT
+ * @var string
+ */
+define("HTTP_METH_PUT", 'PUT');
+
+/**
+ * HTTP method DELETE
+ * @var string
+ */
+define("HTTP_METH_DELETE", 'DELETE');
+
+/**
+ * HTTP method OPTIONS
+ * @var string
+ */
+define("HTTP_METH_OPTIONS", 'OPTIONS');
 
 /**
  * Returns a valid HTTP date using given timestamp or current time if none given.
@@ -159,12 +210,12 @@ function http_send_file($file, $filetype = 'download', $filename = null) {
  * Also, POST requests with "multipart/form-data" will not work with this
  * function, as it relies on php://input.
  *
- * @see \HttpUtil\Request\Body::getContents()
+ * @see \HttpUtil\Request\Body::contents()
  * 
  * @return string HTTP request body.
  */
 function http_get_request_body() {
-	return \HttpUtil\Request\Body::getContents();
+	return \HttpUtil\Request\Body::contents();
 }
 
 /**
@@ -172,12 +223,12 @@ function http_get_request_body() {
  * 
  * Uses fopen("php://input") with binary flag.
  * 
- * @see \HttpUtil\Request\Body::getHandle()
+ * @see \HttpUtil\Request\Body::handle()
  * 
  * @return resource Read-only file handle for php://input stream.
  */
 function http_get_request_body_stream() {
-	return \HttpUtil\Request\Body::getHandle();
+	return \HttpUtil\Request\Body::handle();
 }
 
 /**

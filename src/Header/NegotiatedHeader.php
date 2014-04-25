@@ -4,9 +4,6 @@ namespace HttpUtil\Header;
 
 /**
  * Represents a request header where the value is negotiated for the response.
- * 
- * Adapted from BulletPHP Request
- * @see {@link https://github.com/vlucas/bulletphp/blob/master/src/Bullet/Request.php}
  */
 class NegotiatedHeader extends MultiValueHeader {
 	
@@ -77,6 +74,10 @@ class NegotiatedHeader extends MultiValueHeader {
 	
 	/**
 	 * Parse the values from the header value string and populates $this->values.
+	 * 
+	 * Adapted from BulletPHP Request
+	 * @see {@link https://github.com/vlucas/bulletphp/blob/master/src/Bullet/Request.php}
+	 *
 	 * @return $this
 	 */
 	protected function parse() {
@@ -112,6 +113,9 @@ class NegotiatedHeader extends MultiValueHeader {
 	/**
 	 * Sort the accepted values in quality then positional order.
 	 * 
+	 * Adapted from BulletPHP Request
+	 * @see {@link https://github.com/vlucas/bulletphp/blob/master/src/Bullet/Request.php}
+	 *
 	 * @param HeaderValue $a
 	 * @param HeaderValue $b
 	 * @return int Value returned for usort()

@@ -2,6 +2,9 @@
 
 namespace HttpUtil;
 
+/**
+ * Response status code descriptions.
+ */
 class StatusDescription extends StaticStorage {
 	protected static $store = array(
 		100 => 'Continue',

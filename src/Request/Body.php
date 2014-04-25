@@ -2,6 +2,11 @@
 
 namespace HttpUtil\Request;
 
+/**
+ * Class representing the body of the webserver's current HTTP request.
+ * 
+ * Provides access to the "php://input" stream and contents.
+ */
 class Body
 {
 	
@@ -20,14 +25,14 @@ class Body
 	/**
 	 * Gets the request body stream contents as string.
 	 * 
-	 * Reads the stream opened by getHandle();
+	 * Reads the stream from handle();
 	 * 
 	 * @return string Contents of request body read from input stream.
 	 */
-	public static function getContents() {
+	public static function contents() {
 			
 		if (! isset(static::$contents)) {
-			static::$contents = stream_get_contents(static::getHandle());
+			static::$contents = stream_get_contents(static::handle());
 		}
 		
 		return static::$contents;
@@ -41,7 +46,7 @@ class Body
 	 * 
 	 * @return resource Read-only handle for the php://input stream.
 	 */
-	public static function getHandle() {
+	public static function handle() {
 		
 		if (! isset(static::$handle)) {
 			static::open();
