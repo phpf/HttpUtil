@@ -33,6 +33,70 @@ if (! function_exists('http_get_request_headers')) {
 	require __DIR__.'/src/fn/http.php';
 }
 
+class HttpUtil {
+	
+	const ENV_SSL = 3;
+	const ENV_HOST = 5;
+	const ENV_DOMAIN = 7;
+	
+	protected static $env = array();
+	protected static $host;
+	protected static $domain;
+	
+	protected static $instance;
+	
+	protected $request_handler;
+	
+	public static function instance() {
+		if (! isset(static::$instance)) {
+			static::$instance = new static();
+		}
+		return static::$instance;
+	}
+	
+	public static function getenv($id) {
+		
+		$env = static::instance();
+		
+		switch($id) {
+			
+			case static::ENV_SSL :
+				
+				if (! isset(static::$env['ssl'])) {
+					$ssl = false;
+					if (false !== $https = getenv('https')) {
+						$ssl = ('on' === strtolower($https) || '1' == $https);
+					} else if ('https' === getenv('http_x_forwarded_proto') || '443' === (string) getenv('server_port')) {
+						$ssl = true;
+					}
+					static::$env['ssl'] = $ssl;
+				}
+				
+				return static::$env['ssl'];
+			
+			case static::ENV_HOST :
+				
+				if (! isset(static::$env['host'])) {
+					static::$env['host'] = rtrim(getenv('http_host'), '/\\').rtrim(dirname(getenv('script_name')), '/\\');
+				}
+				
+				return static::$env['host'];
+			
+			case static::ENV_DOMAIN :
+				
+				return 'http'.(static::env(static::ENV_SSL) ? 's' : '').'://'.ltrim(static::env(static::ENV_HOST), '/');
+				
+			default :
+				
+				trigger_error("Unknown HTTP environment ID.", E_USER_WARNING);
+		}
+	}
+	
+	public function getRequestHandler() {
+		return isset($this->request_handler) ? $this->request_handler : null;
+	}
+}
+
 /**
  * Retrieve information about the current environment.
  *
@@ -51,30 +115,13 @@ if (! function_exists('http_get_request_headers')) {
  * *	* $_SERVER['SERVER_PORT'] == '443'
  */
 function http_env($id) {
-
 	switch($id) {
-
 		case 'ssl' :
-			static $sslEnabled;
-			if (! isset($sslEnabled)) {
-				// @format:off
-				$sslEnabled = (isset($_SERVER['HTTPS']) && ('on' === strtolower($_SERVER['HTTPS']) || '1' == $_SERVER['HTTPS']))
-					|| (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'])
-					|| (isset($_SERVER['SERVER_PORT']) && '443' == $_SERVER['SERVER_PORT']);
-				// @format:on
-			}
-			return $sslEnabled;
-
+			return HttpUtil::getenv(HttpUtil::ENV_SSL);
 		case 'host' :
-			static $host;
-			if (! isset($host)) {
-				$host = rtrim($_SERVER['HTTP_HOST'], '/\\').rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-			}
-			return $host;
-
+			return HttpUtil::getenv(HttpUtil::ENV_HOST);
 		case 'domain' :
-			return 'http'.(http_env('ssl') ? 's' : '').'://'.ltrim(http_env('host'), '/');
-
+			return HttpUtil::getenv(HttpUtil::ENV_DOMAIN);
 		default :
 			trigger_error("Unknown HTTP environment ID.", E_USER_NOTICE);
 	}
@@ -83,7 +130,7 @@ function http_env($id) {
 /**
  * Set a class to handle HTTP requests through the functional API.
  *
- * @param string $class Name of a class that extends HttpUtil\Request\Adapter.
+ * @param string $class Name of a class that extends HttpUtil\Client\Adapter.
  * @return void
  */
 function http_set_request_handler($class) {
@@ -166,7 +213,7 @@ function http_in_request_header($name, $value, $match_case = false) {
 /**
  * Returns a HTTP status header description.
  *
- * @param int $code		HTTP response status code.
+ * @param int $code		HTTP status code.
  * @return string		Status description string, or empty string if invalid.
  */
 function http_response_code_desc($code) {
@@ -193,6 +240,186 @@ function mimetype($filetype, $default = 'application/octet-stream') {
  */
 function mime2filetype($mimetype, $default = null) {
 	return \HttpUtil\MIME::lookup($mimetype, $default);
+}
+ 
+/**
+ * Decode a chunked body as per RFC 2616
+ * 
+ * @author rmccue/Requests
+ * 
+ * @see http://tools.ietf.org/html/rfc2616#section-3.6.1
+ * @param string $data Chunked body
+ * @return string Decoded body
+ */
+function http_chunked_decode($data) {
+	if (! preg_match('/^([0-9a-f]+)[^\r\n]*\r\n/i', trim($data))) {
+		return $data;
+	}
+
+	$decoded = '';
+	$encoded = $data;
+
+	while (true) {
+		$is_chunked = (bool) preg_match('/^([0-9a-f]+)[^\r\n]*\r\n/i', $encoded, $matches);
+		if (!$is_chunked) {
+			return $data;
+		}
+
+		$length = hexdec(trim($matches[1]));
+		if ($length === 0) {
+			// Ignore trailer headers
+			return $decoded;
+		}
+
+		$chunk_length = strlen($matches[0]);
+		$decoded .= $part = substr($encoded, $chunk_length, $length);
+		$encoded = substr($encoded, $chunk_length + $length + 2);
+
+		if (trim($encoded) === '0' || empty($encoded)) {
+			return $decoded;
+		}
+	}
+}
+
+/**
+ * Decompress an encoded body
+ * 
+ * Implements gzip, compress and deflate. Guesses which it is by attempting
+ * to decode.
+ * 
+ * @author rmccue/Requests
+ *  
+ * @param string $data Compressed data as string.
+ * @return string Decompressed data, or original if not compressed or decompression failed. 
+ */
+function http_inflate($data) {
+	
+	if (substr($data, 0, 2) !== "\x1f\x8b" && substr($data, 0, 2) !== "\x78\x9c") {
+		// Not actually compressed. Probably cURL ruining this for us.
+		return $data;
+	}
+
+	if (function_exists('gzdecode') && ($decoded = @gzdecode($data)) !== false) {
+		return $decoded;
+	} else if (function_exists('gzinflate') && ($decoded = @gzinflate($data)) !== false) {
+		return $decoded;
+	} else if (($decoded = http_inflate_compat($data)) !== false) {
+		return $decoded;
+	} else if (function_exists('gzuncompress') && ($decoded = @gzuncompress($data)) !== false) {
+		return $decoded;
+	}
+
+	return $data;
+}
+
+/**
+ * Decompression of deflated string while staying compatible with the majority of servers.
+ *
+ * Certain Servers will return deflated data with headers which PHP's gzinflate()
+ * function cannot handle out of the box. The following function has been created from
+ * various snippets on the gzinflate() PHP documentation.
+ *
+ * Warning: Magic numbers within. Due to the potential different formats that the compressed
+ * data may be returned in, some "magic offsets" are needed to ensure proper decompression
+ * takes place. For a simple progmatic way to determine the magic offset in use, see:
+ * http://core.trac.wordpress.org/ticket/18273
+ * 
+ * @author rmccue/Requests
+ * 
+ * @param string $gzData String of compressed data.
+ * @return string|boolean Decompressed data or false on failure.
+ */
+function http_inflate_compat($gzData) {
+	
+	// Compressed data might contain a full zlib header, if so strip it for
+	// gzinflate()
+	if (substr($gzData, 0, 3) == "\x1f\x8b\x08") {
+		$i = 10;
+		$flg = ord(substr($gzData, 3, 1));
+		if ($flg > 0) {
+			if ($flg & 4) {
+				list($xlen) = unpack('v', substr($gzData, $i, 2));
+				$i = $i + 2 + $xlen;
+			}
+			if ($flg & 8)
+				$i = strpos($gzData, "\0", $i) + 1;
+			if ($flg & 16)
+				$i = strpos($gzData, "\0", $i) + 1;
+			if ($flg & 2)
+				$i = $i + 2;
+		}
+		
+		$decompressed = http_inflate_compat(substr($gzData, $i));
+		
+		if (false !== $decompressed) {
+			return $decompressed;
+		}
+	}
+
+	// If the data is Huffman Encoded, we must first strip the leading 2
+	// byte Huffman marker for gzinflate()
+	// The response is Huffman coded by many compressors such as
+	// java.util.zip.Deflater, Ruby’s Zlib::Deflate, and .NET's
+	// System.IO.Compression.DeflateStream.
+	//
+	// See http://decompres.blogspot.com/ for a quick explanation of this
+	// data type
+	$huffman_encoded = false;
+
+	// low nibble of first byte should be 0x08
+	list(, $first_nibble)    = unpack('h', $gzData);
+
+	// First 2 bytes should be divisible by 0x1F
+	list(, $first_two_bytes) = unpack('n', $gzData);
+
+	if (0x08 == $first_nibble && 0 == ($first_two_bytes % 0x1F))
+		$huffman_encoded = true;
+
+	if ($huffman_encoded) {
+		if (false !== ($decompressed = @gzinflate(substr($gzData, 2))))
+			return $decompressed;
+	}
+
+	if ("\x50\x4b\x03\x04" == substr($gzData, 0, 4)) {
+		// ZIP file format header
+		// Offset 6: 2 bytes, General-purpose field
+		// Offset 26: 2 bytes, filename length
+		// Offset 28: 2 bytes, optional field length
+		// Offset 30: Filename field, followed by optional field, followed
+		// immediately by data
+		list(, $general_purpose_flag) = unpack('v', substr($gzData, 6, 2));
+
+		// If the file has been compressed on the fly, 0x08 bit is set of
+		// the general purpose field. We can use this to differentiate
+		// between a compressed document, and a ZIP file
+		$zip_compressed_on_the_fly = (0x08 == (0x08 & $general_purpose_flag));
+
+		if (! $zip_compressed_on_the_fly) {
+			// Don't attempt to decode a compressed zip file
+			return $gzData;
+		}
+
+		// Determine the first byte of data, based on the above ZIP header
+		// offsets:
+		$first_file_start = array_sum(unpack('v2', substr($gzData, 26, 4)));
+		if (false !== ($decompressed = @gzinflate(substr($gzData, 30 + $first_file_start)))) {
+			return $decompressed;
+		}
+		return false;
+	}
+
+	// Finally fall back to straight gzinflate
+	if (false !== ($decompressed = @gzinflate($gzData))) {
+		return $decompressed;
+	}
+
+	// Fallback for all above failing, not expected, but included for
+	// debugging and preventing regressions and to track stats
+	if (false !== ($decompressed = @gzinflate(substr($gzData, 2)))) {
+		return $decompressed;
+	}
+
+	return false;
 }
 
 /**
