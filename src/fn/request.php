@@ -1,6 +1,6 @@
 <?php
 /**
- * @package HttpUtil
+ * @package Phpf\HttpUtil
  * 
  * HTTP request functions:
  * * http_create_request()
@@ -11,6 +11,16 @@
  * * http_put()
  * * http_put_file()
  */
+
+/**
+ * Set a class to handle HTTP requests through the functional API.
+ *
+ * @param string $class Name of a class that extends HttpUtil\Client\Adapter.
+ * @return void
+ */
+function http_set_request_handler($class) {
+	\HttpUtil\Main::setRequestHandler($class);
+}
 
 /**
  * Creates a new instance of the request handler class.
@@ -25,11 +35,9 @@
  */
 function http_create_request($method, $url, array $options = null) {
 	
-	if (! defined('HTTP_REQUEST_HANDLER')) {
-		throw new RuntimeException("No request handler set.");
+	if (! $class = \HttpUtil\Main::getRequestHandler()) {
+		throw new HttpUtilException("No HTTP request handler set.");
 	}
-	
-	$class = HTTP_REQUEST_HANDLER;
 	
 	return new $class($method, $url, $options);
 }
@@ -46,13 +54,7 @@ function http_create_request($method, $url, array $options = null) {
  */
 function http_request($method, $url, $data = null, array $options = array()) {
 	
-	try {
-		$http = http_create_request($method, $url, $options);
-	} catch (RuntimeException $e) {
-		$method = strtoupper($method);
-		trigger_error("Could not perform HTTP $method request - ".$e->getMessage(), E_USER_WARNING);
-		return null;
-	}
+	$http = http_create_request($method, $url, $options);
 
 	if (! empty($data)) {
 		$http->addData($data);
