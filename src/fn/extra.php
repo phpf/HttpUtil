@@ -50,17 +50,7 @@ function http_env($name) {
  * @return array Associative array of cache headers.
  */
 function http_build_cache_headers($expires_offset = 86400) {
-	$headers = array();
-	if (empty($expires_offset) || '0' === $expires_offset) {
-		$headers['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
-		$headers['Expires'] = 'Thu, 19 Nov 1981 08:52:00 GMT';
-		$headers['Pragma'] = 'no-cache';
-	} else {
-		$headers['Cache-Control'] = "Public, max-age=$expires_offset";
-		$headers['Expires'] = http_date(time() + $expires_offset);
-		$headers['Pragma'] = 'Public';
-	}
-	return $headers;
+	return \HttpUtil\HTTP::instance()->buildCacheHeaders($expires_offset);
 }
 
 /**
@@ -79,11 +69,7 @@ function http_build_cache_headers($expires_offset = 86400) {
  * 						or first array value if no match found.
  */
 function http_negotiate_request_header($name, array $accept) {
-	if (null === $header = http_get_request_header($name)) {
-		return $accept[0];
-	}
-	$object = new \HttpUtil\Header\NegotiatedHeader($name, $header);
-	return $object->negotiate($accept);
+	return \HttpUtil\HTTP::instance()->negotiateRequestHeader($name, $accept);
 }
 
 /**
@@ -95,10 +81,7 @@ function http_negotiate_request_header($name, array $accept) {
  * @return boolean			True if found, otherwise false.
  */
 function http_in_request_header($name, $value, $match_case = false) {
-	if (null === $header = http_get_request_header($name)) {
-		return false;
-	}
-	return $match_case ? false !== strpos($header, $value) : false !== stripos($header, $value);
+	return \HttpUtil\HTTP::instance()->inRequestHeader($name, $value, $match_case);
 }
 
 /**

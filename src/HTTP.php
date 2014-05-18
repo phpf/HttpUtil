@@ -19,6 +19,8 @@ class HTTP {
 	protected static $instance;
 	
 	/**
+	 * Returns singleton instance.
+	 * 
 	 * @return $this
 	 */
 	public static function instance() {
@@ -27,13 +29,20 @@ class HTTP {
 		return static::$instance;
 	}
 	
+	/**
+	 * Set/get whether to automatically open request and response stream handles.
+	 * 
+	 * @param boolean|null [Optional] True/false to set value.
+	 * @return boolean True if set to auto-open stream handles, otherwise false (default).
+	 */
 	public static function autoOpenStreams($boolval = null) {
 		isset($boolval) and static::$auto_open_streams = (bool)$boolval;
 		return static::$auto_open_streams;
 	}
 	
 	/**
-	 * Auto-open streams if set to do so.
+	 * Constructor auto-opens streams if set to do so.
+	 * @return void
 	 */
 	protected function __construct() {
 		if (static::$auto_open_streams) {
@@ -41,6 +50,10 @@ class HTTP {
 			$this->openOutputStream();
 		}
 	}
+	
+	/** ================================
+	 			pecl_http
+	================================ **/
 	
 	/**
 	 * Returns a valid HTTP date using given timestamp or current time if none given.
@@ -64,7 +77,7 @@ class HTTP {
 	public function redirect($url, $status = 0, $exit = true) {
 			
 		if (headers_sent($filename, $line)) {
-			throw new RuntimeException("Cannot redirect to '$url' - Output already started in $filename on line $line</p>");
+			throw new RuntimeException("Cannot redirect to '$url' - Output already started in $filename on line $line.");
 		}
 	
 		if (0 !== $status) {
@@ -93,9 +106,11 @@ class HTTP {
 	 * @return void
 	 */
 	public function sendStatus($code) {
-		\http_response_code($code);
+			
+		http_response_code($code);
+		
 		// don't replace in case we're rfc2616
-		header("Status: $code ".\http_response_code_desc($code), false);
+		header("Status: $code ".$this->statusCodeDescription($code), false);
 	}
 		
 	/**
@@ -105,11 +120,11 @@ class HTTP {
 	 * @param string|null $charset Optional charset to send.
 	 * @return boolean True if sent, false/warning error if missing a part.
 	 */
-	public function sendContentType($content_type = 'application/x-octetstream', $charset = null) {
+	public function sendContentType($content_type = 'application/octet-stream', $charset = null) {
 			
 		if (false === strpos($content_type, '/')) {
-			if (null === $content_type = \mimetype($content_type)) {
-				trigger_error('Content type should contain primary and secondary parts.', E_USER_WARNING);
+			if (null === $content_type = MIME::get(strtolower($content_type), 'application/octet-stream')) {
+				trigger_error('Content type should contain primary and secondary parts.');
 				return false;
 			}
 		}
@@ -176,7 +191,7 @@ class HTTP {
 		header('Cache-Control: no-cache, must-revalidate, post-check=0, pre-check=0');
 		header('Pragma: public');
 	
-		$this->sendContentType(\mimetype($filetype, 'application/octet-stream'));
+		$this->sendContentType(MIME::get(strtolower($filetype), 'application/octet-stream'));
 	
 		$this->sendContentDisposition('attachment', $filename);
 	
@@ -236,9 +251,11 @@ class HTTP {
 	 * @return string|null		Header value, if set, otherwise null.
 	 */
 	public function getRequestHeader($name) {
+		
 		if (! isset($this->headers)) {
 			$this->getRequestHeaders();
 		}
+		
 		return isset($this->headers[$name]) ? $this->headers[$name] : null;
 	}
 	
@@ -278,7 +295,7 @@ class HTTP {
 			return $accept[0];
 		}
 		
-		$object = new \HttpUtil\Header\NegotiatedHeader('accept', $header);
+		$object = new Header\NegotiatedHeader('accept', $header);
 		
 		return $object->negotiate($accept);
 	}
@@ -300,10 +317,102 @@ class HTTP {
 			return $accept[0];
 		}
 		
-		$object = new \HttpUtil\Header\AcceptLanguage('accept-language', $header);
+		$object = new Header\AcceptLanguage('accept-language', $header);
 		
 		return $object->negotiate($accept, $result);
 	}
+	
+	/** ================================
+	 			Extra Methods
+	================================ **/
+		
+	/**
+	 * Returns an associative array of cache headers suitable for use in header().
+	 *
+	 * Returns the 'Cache-Control', 'Expires', and 'Pragma' headers given the
+	 * expiration offset in seconds (from current time). If '0' or a value which
+	 * evaluates to empty is given, returns "no-cache" headers, with Cache-Control
+	 * set to 'no-cache, must-revalidate, max-age=0', 'Expires' set to a date in the
+	 * past, and 'Pragma' set to 'no-cache'.
+	 *
+	 * @param int $expires_offset Expiration in seconds from now.
+	 * @return array Associative array of cache headers.
+	 */
+	public function buildCacheHeaders($expires_offset = 86400) {
+			
+		$headers = array();
+		
+		if (empty($expires_offset) || '0' === $expires_offset) {
+			$headers['Cache-Control'] = 'no-cache, must-revalidate, max-age=0';
+			$headers['Expires'] = 'Thu, 19 Nov 1981 08:52:00 GMT';
+			$headers['Pragma'] = 'no-cache';
+		} else {
+			$headers['Cache-Control'] = "Public, max-age=$expires_offset";
+			$headers['Expires'] = $this->date(time() + $expires_offset);
+			$headers['Pragma'] = 'Public';
+		}
+		
+		return $headers;
+	}
+	
+	/**
+	 * Parses an arbitrary request header to determine which value to use in
+	 * response.
+	 *
+	 * This is a general-use function; specific implementations exist for
+	 * content-type and language negotiation.
+	 *
+	 * @see http_negotiate_content_type()
+	 * @see http_negotiate_language()
+	 *
+	 * @param string $name	Request header name, lowercase.
+	 * @param array $accept Indexed array of accepted values.
+	 * @return string 		Matched value (selected by quality, then position),
+	 * 						or first array value if no match found.
+	 */
+	public function negotiateRequestHeader($name, array $accept) {
+			
+		if (null === $header = $this->getRequestHeader($name)) {
+			return $accept[0];
+		}
+		
+		$object = new Header\NegotiatedHeader($name, $header);
+		
+		return $object->negotiate($accept);
+	}
+	
+	/**
+	 * Determines if $value is in the contents of $name request header.
+	 *
+	 * @param string $name		Header name, lowercase, without 'HTTP_'.
+	 * @param string $value		Value to search for.
+	 * @param bool $match_case	Whether to search case-sensitive, default false.
+	 * @return boolean			True if found, otherwise false.
+	 */
+	public function inRequestHeader($name, $value, $match_case = false) {
+			
+		if (null === $header = $this->getRequestHeader($name)) {
+			return false;
+		}
+		
+		return $match_case 
+			? false !== strpos($header, $value) 
+			: false !== stripos($header, $value);
+	}
+	
+	/**
+	 * Returns a HTTP status header description.
+	 *
+	 * @param int $code		HTTP status code.
+	 * @return string		Status description string, or empty string if invalid.
+	 */
+	public function statusCodeDescription($code) {
+		return StatusDescription::get(intval($code), '');
+	}
+	
+	/** ================================
+	 			I/O Streams
+	================================ **/
 		
 	/**
 	 * Returns a read-only file handle for the request body stream.
